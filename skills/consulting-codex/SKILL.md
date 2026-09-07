@@ -20,7 +20,7 @@ that made the review checkable. Decide which mode you are in *before* you build 
 | | Reviewer | Implementer |
 |---|---|---|
 | Sandbox | `-s read-only` **(mandatory)** | `-s workspace-write` |
-| Model | `gpt-5.6-sol` | `gpt-5.6-luna` or `gpt-5.6-terra` |
+| Model | `gpt-6-astra` **(default)** | `gpt-5.6-luna` or `gpt-5.6-terra` |
 | Output | Findings on stdout, back to you | Edits in the working tree |
 | Writes files? | **No** — unless the user explicitly asked for a review file | Yes, that's the point |
 
@@ -43,7 +43,7 @@ cannot recover it. No exceptions:
 **Pass the prompt as a heredoc to `-`, not as a shell argument:**
 
 ```bash
-codex exec -s read-only -m gpt-5.6-sol - <<'PROMPT'
+codex exec -s read-only -m gpt-6-astra -c model_reasoning_effort="low" - <<'PROMPT'
 Review src/auth/session.ts for correctness. Focus on `expiresAt` handling.
 PROMPT
 ```
@@ -109,13 +109,15 @@ entire run and you have to start over.
 
 ### Models
 
-All three are GPT-5.6 variants and all accept every effort level.
-
 | Model | Use it for |
 |---|---|
-| `gpt-5.6-sol` | **Reviews, and hard implementation.** Complex, open-ended, ambiguous work; architecture critique; intricate multi-file changes. Start here when unsure. |
+| `gpt-6-astra` | **Default for reviews and spec critique.** Gets more out of a given effort level than the 5.6 family, so it is the one to reach for on plan review, spec review, and code review — at `low`. Also the strongest option for genuinely hard reasoning, by raising its effort rather than switching model. |
+| `gpt-5.6-sol` | **Hard implementation.** Intricate multi-file changes and architecture work where you specifically want the 5.6 reasoning profile. Astra has largely displaced it for review. |
 | `gpt-5.6-terra` | **Default implementer.** Everyday work balancing reasoning with tool use: features against a clear spec, refactors, test writing, debugging with a known repro. |
 | `gpt-5.6-luna` | **Mechanical implementer.** Clear, repeatable tasks with defined success criteria: renames, codemods, boilerplate, extraction, classification, structured summaries. Cheapest and fastest. |
+
+`gpt-6-astra` requires **codex-cli 0.153.0 or newer**. On an older CLI the run fails with
+`The 'gpt-6-astra' model requires a newer version of Codex` — fix it with `codex update`.
 
 ### Effort Levels
 
@@ -123,14 +125,17 @@ Set with `-c model_reasoning_effort="<level>"`.
 
 | Level | When |
 |---|---|
-| `minimal` / `low` | Quick, well-defined tasks. Mechanical edits, style checks, obvious bugs. |
-| `medium` | Balanced default — routine diff review, a feature against a clear spec. |
-| `high` | **Default for a real code review.** Multi-step problems with tradeoffs; cross-file correctness reasoning. |
+| `low` | **Default for review on `gpt-6-astra`** — spec review, plan review, code review. Also quick well-defined tasks on any model: mechanical edits, style checks, obvious bugs. |
+| `medium` | Balanced default for implementation — a feature against a clear spec. |
+| `high` | **Default for a real code review on the 5.6 models.** On astra, the step up when `low` comes back thin. Multi-step problems with tradeoffs; cross-file correctness reasoning. |
 | `xhigh` | Subtle correctness — concurrency, protocol/state machines, security-sensitive paths. |
 | `max` | Hardest problems, depth over speed. Slow and expensive; reserve it. |
 | `ultra` | Divisible complex tasks — codex fans out to parallel subagents. Whole-feature or whole-PR sweeps, not a single file. |
 
-`none` and `minimal` also exist at the API level; treat `low` as the practical floor.
+**`gpt-6-astra` accepts `low`, `medium`, `high`, `xhigh`, `max` — and `ultra` at the CLI
+level. It rejects `minimal`** (`'minimal' is not supported with the 'gpt-6-astra' model`).
+On the 5.6 models `none` and `minimal` exist at the API level, but treat `low` as the
+practical floor everywhere.
 
 ---
 
@@ -176,8 +181,8 @@ briefly, but lead with what was asked.
 for you, and returns prioritized findings. It is read-only by nature.
 
 ```bash
-codex exec review --uncommitted -m gpt-5.6-sol -c model_reasoning_effort="high" < /dev/null
-codex exec review --base main   -m gpt-5.6-sol -c model_reasoning_effort="high" < /dev/null
+codex exec review --uncommitted -m gpt-6-astra -c model_reasoning_effort="low" < /dev/null
+codex exec review --base main   -m gpt-6-astra -c model_reasoning_effort="low" < /dev/null
 codex exec review --commit <sha> < /dev/null
 ```
 
@@ -187,7 +192,7 @@ custom PROMPT** — `codex exec review --base main - <<'PROMPT'` fails with "the
 use plain `codex exec` and name the range in the prompt (codex runs git itself):
 
 ```bash
-codex exec -s read-only -m gpt-5.6-sol -c model_reasoning_effort="high" - <<'PROMPT'
+codex exec -s read-only -m gpt-6-astra -c model_reasoning_effort="low" - <<'PROMPT'
 Review the diff `git diff main..HEAD` (run it yourself).
 Focus on error handling and resource cleanup.
 PROMPT
@@ -219,7 +224,7 @@ Ask for concrete failure scenarios, not opinions. "Give inputs and state that pr
 wrong output" yields verifiable claims; "what do you think of this code" yields prose.
 
 ```bash
-codex exec -s read-only -m gpt-5.6-sol -c model_reasoning_effort="high" - <<'PROMPT'
+codex exec -s read-only -m gpt-6-astra -c model_reasoning_effort="low" - <<'PROMPT'
 Review src/auth/session.ts. Goal: sessions expire exactly 30 min after last activity,
 across server restarts. I'm most worried about clock handling and the restart path.
 Report findings ranked most-severe first; for each give file:line and a concrete
@@ -259,7 +264,7 @@ disable the sandbox entirely — don't reach for them; ask the user first if you
 them.
 
 **2. Pick the model by how much judgment the task needs:** `luna` for mechanical work with an
-unambiguous target, `terra` for real features and refactors, `sol` only when the
+unambiguous target, `terra` for real features and refactors, and `sol` or `astra` only when the
 implementation itself is genuinely hard.
 
 **3. Work on a clean tree.** Commit or stash first, so codex's changes arrive as a reviewable
@@ -313,7 +318,9 @@ will not let it start writing.
 | Passing `-o` on a routine review | Leaves an artifact nobody asked for. Read stdout; use `-o` only when a review file was requested. |
 | Using `--effort` or `--reasoning` | Neither exists. It's `-c model_reasoning_effort="..."`. |
 | Piping a diff into plain `codex exec` | Use `codex exec review --base <branch>` — better context than you can assemble. |
-| Defaulting to `max`/`ultra` | Slow and expensive. `high` handles nearly every review. |
+| Defaulting to `max`/`ultra` | Slow and expensive. `gpt-6-astra` at `low` handles nearly every review; `high` is the escalation. |
+| Passing `minimal` effort to `gpt-6-astra` | Astra rejects it. `low` is its floor. |
+| `gpt-6-astra` erroring about the Codex version | The CLI is below 0.153.0. Run `codex update`. |
 | Delegating a vague task to an implementer | Plausible code aimed at the wrong target. Scope it and state success criteria. |
 | Trusting the implementer's success report | Read `git diff` and run the tests. |
 | Treating findings as verdicts | They're hypotheses. Verify each against the code. |
