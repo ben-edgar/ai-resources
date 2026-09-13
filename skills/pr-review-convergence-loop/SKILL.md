@@ -1,6 +1,6 @@
 ---
 name: pr-review-convergence-loop
-description: Use when asked to iterate on PR review feedback until it converges - runs the addressing-pr-review-comments workflow in a loop, consulting codex to validate each finding and again to review each fix before pushing, and stops when only nits remain. Triggers on "keep addressing PR comments until clean", "loop on the PR review", "converge the PR", "iterate until the PR is approved", "keep fixing review comments until the reviewer is happy", "babysit the PR review", "get this PR to green", "address comments, push, and re-check until done". For a single pass over the current comments, use addressing-pr-review-comments instead.
+description: Use when asked to iterate on PR review feedback until it converges over bounded rounds, stopping when only nits remain. Triggers on "keep addressing PR comments until clean", "loop on the PR review", "converge the PR", "iterate until the PR is approved", "keep fixing review comments until the reviewer is happy", "babysit the PR review", "get this PR to green", "address comments, push, and re-check until done". For a single pass over the current comments, use addressing-pr-review-comments instead.
 ---
 
 # PR Review Convergence Loop
@@ -14,8 +14,9 @@ converge, not to grind.
 **The premise: review findings are usually real, but their suggested fixes
 frequently are not.** A reviewer sees the symptom from outside the codebase. It
 proposes the fix a reader would reach for, which routinely breaks an invariant
-it could not see. Codex is consulted twice per round to close that gap — once on
-the finding, once on your fix.
+it could not see. For a finding that meets the bar in "When To Consult Codex"
+below, codex is consulted twice — once on the finding, once on your fix. Every
+other finding you verify yourself, directly, and say so.
 
 ## Required Companion Skills
 
@@ -30,6 +31,34 @@ the finding, once on your fix.
   `codex`** (bare launches a TUI and hangs forever).
 - `test-driven-development` — every code fix is red-green.
 - `verification-before-completion` — no success claim without a command's output.
+
+## When To Consult Codex
+
+Codex is slow and expensive. Consult it only when the finding or its fix meets
+one of these predicates. Otherwise verify directly and skip both codex steps.
+
+**Consult codex when the fix would:**
+
+- touch concurrency, ordering, caching, retries, sync, a schema or migration,
+  startup ordering, or auth/token handling;
+- change behaviour in more than one module, or in code another finding on the
+  PR already called an invariant;
+- reshape the architecture of the branch — a new abstraction, a moved
+  responsibility, a changed data flow;
+- or leave you unable to say whether the finding is real after you have walked
+  the code path yourself.
+
+**Verify directly, without codex, when the fix is:**
+
+- a doc, comment, or changelog edit;
+- a one-line config or script change whose effect a command demonstrates — a
+  regex you can table-test, a flag whose before/after counts you can run;
+- removing an unused dependency, with a red/green install check;
+- a finding you can refute by running the check the reviewer suggested.
+
+When you skip codex, say so in the thread reply and in the final summary, with
+the command and result you used instead. The skip is a judgment call the reader
+should be able to see and disagree with.
 
 ## Round Budget
 
@@ -85,9 +114,13 @@ comments and review bodies cannot.
 claims and decide for yourself whether it is reachable, so codex's answer is
 checkable rather than authoritative.
 
-### 3. Consult Codex On The Finding
+### 3. Consult Codex On The Finding — Only If It Meets The Bar
 
-One call per finding, or one per coherent group. Effort: `medium` for a
+Apply "When To Consult Codex" first. For a finding below the bar, walk the code
+and run the reviewer's own suggested check; that is the validation.
+
+For a finding that meets the bar: one call per finding, or one per coherent
+group. Effort: `medium` for a
 contained finding — narrower than a full diff review, hence below
 `consulting-codex`'s `high` default — and `high` for concurrency, ordering,
 caching, or anything touching a spec requirement.
@@ -143,10 +176,13 @@ not this PR.
 
 Commit before the codex review, so its findings arrive as a separate diff.
 
-### 7. Consult Codex On Your Fix — Before Pushing
+### 7. Consult Codex On Your Fix — Before Pushing, Only If It Meets The Bar
 
-This is the step that catches regressions you introduced. Same model and effort
-rules as step 3. Point it at `git show HEAD` and ask:
+Same gate as step 3. A fix below the bar is reviewed by re-running its
+verification and reading the diff yourself, not by codex.
+
+For a fix that meets the bar, this is the step that catches regressions you
+introduced. Same model and effort rules as step 3. Point it at `git show HEAD` and ask:
 
 1. Does the change introduce a regression — something that used to be caught,
    ordered, or bounded and now is not?
@@ -184,8 +220,8 @@ You verify.
 
 ## Fallback When Codex Is Unavailable
 
-If `codex exec` fails on usage limits or is not installed, spawn a fresh Opus
-subagent as the reviewer with the same prompt, and **say in your summary that
+If `codex exec` fails on usage limits or is not installed for a finding that
+meets the bar, spawn a fresh Opus subagent as the reviewer with the same prompt, and **say in your summary that
 codex was unavailable and which reviewer you used**. Never silently skip the
 consultation — it is the step that makes this loop worth running.
 
@@ -199,7 +235,8 @@ When the loop ends, report:
   of the summary — it is what the user cannot reconstruct from the diff.
 - Where the suggested fix was wrong and what you did instead.
 - Any thread left open, and the disagreement behind it.
-- Whether codex was available throughout.
+- Which findings went to codex and which you verified directly, with the
+  command used, and whether codex was available when called.
 - Verification actually run, with counts.
 
 ## Red Flags
@@ -208,7 +245,8 @@ When the loop ends, report:
 |---|---|
 | "The reviewer suggested it, so I'll apply it" | The finding and the fix are separate claims. Validate both. |
 | "Codex confirmed it, so it's real" | Check the cited lines yourself. |
-| "I'll skip the post-fix review, the change is small" | That review is where introduced regressions surface. |
+| "I'll skip the post-fix review, the change is small" | Small by the bar in "When To Consult Codex"? Skip it and say so. Touches ordering, sync, or several modules? Review it. |
+| "It's only a comment, but codex is cheap insurance" | It is not cheap. Below the bar, verify directly and move on. |
 | "I'll write copy that seems reasonable" | User-facing copy is the user's call. Ask. |
 | "The test passes, so the fix works" | Confirm it failed first, for the right reason. |
 | "No new comments yet, so it's clean" | The review may not have run. Poll before concluding. |
