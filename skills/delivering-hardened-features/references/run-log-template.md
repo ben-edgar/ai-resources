@@ -10,6 +10,8 @@
 - Spec: <path>   Plan: <path>
 - Project commands (from AGENTS.md): format=… analyze=… test=… fixtures=… deploy(non-prod)=…
 - Verification target: <simulator via … | browser | CLI scenarios | service env>
+- Standing rulings: <out-of-scope or low-priority classes, with source>
+- Full-gate checkout: <spare checkout path | this checkout>
 - Expected PR bots: <logins>
 
 ## Stack
@@ -21,7 +23,7 @@
 - [ ] 2 Spec (rounds: _ )
 - [ ] 3 Plan (rounds: _ )
 - [ ] 4 PRs (see Stack)
-- [ ] 5 Finalization: cleanup / full verification / ship-readiness (rounds: _ ) / finalization PR / final evidence
+- [ ] 5 Finalization: triage+cleanup / full gate @ <sha> / full verification / ship-readiness (rounds: _ ) / finalization PR / final evidence + final full gate
 - [ ] 6 Handoff
 
 ## Dispatch log
@@ -53,7 +55,7 @@ edits to the original row.
 
 ```markdown
 ## <Gate> — round <n> — <UTC timestamp>
-Reviewers: codex gpt-6.1-sol high, opus  (or: opus ×2 — codex limit)
+Reviewers: codex gpt-6.2-sol high, gemini-4-neon-high  (or: opus substitute — codex limit)
 
 | ID | Src | Claimed | Final | Status | Location | Finding |
 |---|---|---|---|---|---|---|
@@ -63,4 +65,5 @@ Resolution events:
 - S1-3 — fixed in <sha> (verified by <test/command>) | refuted: <reason> | deferred: D<n>
 
 Unresolved at cap: <IDs with "unfixed" or "fixed, unconfirmed", or "none">
+Ship-readiness carry-overs: <IDs, or "none">
 ```

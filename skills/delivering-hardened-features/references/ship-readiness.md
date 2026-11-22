@@ -5,6 +5,9 @@ this stack merge and go to beta users right away?** Review ``<base-sha>...<final
 one change. Items marked (DadTrack) are examples from that repo; apply the
 equivalent in other projects, and skip a section that does not apply — but say so.
 
+The standing rulings in the acceptance brief bound the compatibility questions
+below; a finding inside one is P2.
+
 ## Backend and deploy order
 - Does the client depend on a backend change (Cloud Functions, rules, indexes,
   config)? Can the backend deploy **first** without breaking currently shipped
@@ -42,11 +45,13 @@ equivalent in other projects, and skip a section that does not apply — but say
 - Docs the project requires per change are updated (DadTrack: `docs/CHANGELOG.md`,
   `docs/features/APP_FEATURES.md`, affected `docs/architecture/` files per AGENTS.md).
 - No debug flags, test-only hooks, or leftover logging in production paths.
-- Analyzer, formatter and full test suite green on the stack top.
+- Analyzer and formatter clean and the full gate green on the stack top (it starts at
+  the first Ship-readiness freeze).
 
 ## Carry-overs
 - Re-assess every "Unresolved at cap" item from earlier gates: still real? still
-  P0/P1? fixed incidentally?
+  P0/P1? fixed incidentally? Re-assess every P1 carried over from a Per-PR delta
+  round the same way.
 
 ## PR bot sweep
 - Done by the orchestrator in parallel with this review, per `pr-feedback.md`
