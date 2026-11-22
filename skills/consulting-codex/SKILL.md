@@ -20,7 +20,7 @@ that made the review checkable. Decide which mode you are in *before* you build 
 | | Reviewer | Implementer |
 |---|---|---|
 | Sandbox | `-s read-only` **(mandatory)** | `-s workspace-write` |
-| Model | `gpt-6.1-sol` at `high` **(default)** | `gpt-6-luna` or `gpt-5.6-terra` |
+| Model | `gpt-6.2-sol` at `high` **(default)** | `gpt-6-luna` or `gpt-5.6-terra` |
 | Output | Findings on stdout, back to you | Edits in the working tree |
 | Writes files? | **No** — unless the user explicitly asked for a review file | Yes, that's the point |
 
@@ -43,7 +43,7 @@ cannot recover it. No exceptions:
 **Pass the prompt as a heredoc to `-`, not as a shell argument:**
 
 ```bash
-codex exec -s read-only -m gpt-6.1-sol -c model_reasoning_effort="high" - <<'PROMPT'
+codex exec -s read-only -m gpt-6.2-sol -c model_reasoning_effort="high" - <<'PROMPT'
 Review src/auth/session.ts for correctness. Focus on `expiresAt` handling.
 PROMPT
 ```
@@ -111,18 +111,17 @@ entire run and you have to start over.
 
 | Model | Use it for |
 |---|---|
-| `gpt-6.1-sol` | **Default reviewer — at `high`.** Spec review, plan review, code review, design critique. The successor to `gpt-6-sol` for complex coding and agentic work. Also the pick for **hard implementation**: intricate multi-file changes and architecture work. |
-| `gpt-6-sol` | **Previous default reviewer.** Still works; use it as a fallback if `gpt-6.1-sol` is unavailable. Roughly half the factual errors of 5.6 Sol at $2/$10 per M tokens. |
-| `gpt-6-astra` | **Escalation only.** The flagship, for truly gnarly problems: subtle concurrency, protocol/state-machine correctness, security-critical paths, or when a `gpt-6.1-sol` review at `xhigh` still comes back thin or contradictory. Don't reach for it by default. |
+| `gpt-6.2-sol` | **Default reviewer — at `high`.** Spec review, plan review, code review, design critique. The successor to `gpt-6.1-sol`. Also the pick for **hard implementation**: intricate multi-file changes and architecture work. |
+| `gpt-6.1-sol` | **Previous default reviewer.** Still works; use it as a fallback if `gpt-6.2-sol` is unavailable. |
+| `gpt-6.2-astra` | **Escalation only.** The flagship (successor to `gpt-6-astra`), for truly gnarly problems: subtle concurrency, protocol/state-machine correctness, security-critical paths, or when a `gpt-6.2-sol` review at `xhigh` still comes back thin or contradictory. Don't reach for it by default. |
 | `gpt-5.6-terra` | **Default implementer.** Everyday work balancing reasoning with tool use: features against a clear spec, refactors, test writing, debugging with a known repro. There is no GPT-6 Terra yet, so this stays on 5.6. |
 | `gpt-6-luna` | **Mechanical implementer.** High-volume tasks with a clear goal and defined success criteria: renames, codemods, boilerplate, extraction, classification, structured summaries. Cheapest and fastest by far. |
 
-The GPT-6 models need a recent CLI. `gpt-6.1-sol` is verified on **codex-cli 0.160.0**.
-`gpt-6-sol` and `gpt-6-luna` work on 0.156.1 or newer; on 0.153.x they fail with
-`Model metadata for 'gpt-6-sol' not found` followed by
-`not supported when using Codex with a ChatGPT account`. `gpt-6-astra` needs 0.153.0 or newer
-(`The 'gpt-6-astra' model requires a newer version of Codex`). Either way, fix it with
-`codex update`.
+The GPT-6 models need a recent CLI. `gpt-6.2-sol` and `gpt-6.2-astra` are verified on
+**codex-cli 0.170.0** (2026-11-18). `gpt-6.1-sol` needs 0.160.0 or newer and `gpt-6-luna`
+0.156.1 or newer. On a CLI that is too old a model fails with `Model metadata for '<model>' not found`,
+`not supported when using Codex with a ChatGPT account`, or
+`The '<model>' model requires a newer version of Codex`. Fix any of them with `codex update`.
 
 ### Effort Levels
 
@@ -132,14 +131,14 @@ Set with `-c model_reasoning_effort="<level>"`.
 |---|---|
 | `low` | Quick well-defined tasks: mechanical edits on `gpt-6-luna`, style checks, obvious bugs, a fast sanity check on a small diff. |
 | `medium` | Balanced default for implementation — a feature against a clear spec. |
-| `high` | **Default for review on `gpt-6.1-sol`** — spec review, plan review, code review. Multi-step problems with tradeoffs; cross-file correctness reasoning. |
-| `xhigh` | Subtle correctness — concurrency, protocol/state machines, security-sensitive paths. Try `gpt-6.1-sol` at `xhigh` before escalating to `gpt-6-astra`. |
+| `high` | **Default for review on `gpt-6.2-sol`** — spec review, plan review, code review. Multi-step problems with tradeoffs; cross-file correctness reasoning. |
+| `xhigh` | Subtle correctness — concurrency, protocol/state machines, security-sensitive paths. Try `gpt-6.2-sol` at `xhigh` before escalating to `gpt-6.2-astra`. |
 | `max` | Hardest problems, depth over speed. Slow and expensive; reserve it. |
 | `ultra` | Divisible complex tasks — codex fans out to parallel subagents. Whole-feature or whole-PR sweeps, not a single file. |
 
 **All GPT-6 models reject `minimal`** (e.g. `'minimal' is not supported with the
-'gpt-6-astra' model`). They accept `low` through `max`, and `ultra` at the CLI level.
-`gpt-6.1-sol` also rejects `none`; `gpt-6-sol` and `gpt-6-luna` accept it. Treat `low` as the practical floor everywhere.
+'gpt-6.2-astra' model`). They accept `low` through `max`, and `ultra` at the CLI level.
+`gpt-6.2-sol` and `gpt-6.1-sol` also reject `none`; `gpt-6-luna` accepts it. Treat `low` as the practical floor everywhere.
 
 ---
 
@@ -185,8 +184,8 @@ briefly, but lead with what was asked.
 for you, and returns prioritized findings. It is read-only by nature.
 
 ```bash
-codex exec review --uncommitted -m gpt-6.1-sol -c model_reasoning_effort="high" < /dev/null
-codex exec review --base main   -m gpt-6.1-sol -c model_reasoning_effort="high" < /dev/null
+codex exec review --uncommitted -m gpt-6.2-sol -c model_reasoning_effort="high" < /dev/null
+codex exec review --base main   -m gpt-6.2-sol -c model_reasoning_effort="high" < /dev/null
 codex exec review --commit <sha> < /dev/null
 ```
 
@@ -196,7 +195,7 @@ custom PROMPT** — `codex exec review --base main - <<'PROMPT'` fails with "the
 use plain `codex exec` and name the range in the prompt (codex runs git itself):
 
 ```bash
-codex exec -s read-only -m gpt-6.1-sol -c model_reasoning_effort="high" - <<'PROMPT'
+codex exec -s read-only -m gpt-6.2-sol -c model_reasoning_effort="high" - <<'PROMPT'
 Review the diff `git diff main..HEAD` (run it yourself).
 Focus on error handling and resource cleanup.
 PROMPT
@@ -228,7 +227,7 @@ Ask for concrete failure scenarios, not opinions. "Give inputs and state that pr
 wrong output" yields verifiable claims; "what do you think of this code" yields prose.
 
 ```bash
-codex exec -s read-only -m gpt-6.1-sol -c model_reasoning_effort="high" - <<'PROMPT'
+codex exec -s read-only -m gpt-6.2-sol -c model_reasoning_effort="high" - <<'PROMPT'
 Review src/auth/session.ts. Goal: sessions expire exactly 30 min after last activity,
 across server restarts. I'm most worried about clock handling and the restart path.
 Report findings ranked most-severe first; for each give file:line and a concrete
@@ -268,7 +267,7 @@ disable the sandbox entirely — don't reach for them; ask the user first if you
 them.
 
 **2. Pick the model by how much judgment the task needs:** `luna` for mechanical work with an
-unambiguous target, `terra` for real features and refactors, and `gpt-6.1-sol` only when the
+unambiguous target, `terra` for real features and refactors, and `gpt-6.2-sol` only when the
 implementation itself is genuinely hard (`astra` if even that isn't enough).
 
 **3. Work on a clean tree.** Commit or stash first, so codex's changes arrive as a reviewable
@@ -322,8 +321,8 @@ will not let it start writing.
 | Passing `-o` on a routine review | Leaves an artifact nobody asked for. Read stdout; use `-o` only when a review file was requested. |
 | Using `--effort` or `--reasoning` | Neither exists. It's `-c model_reasoning_effort="..."`. |
 | Piping a diff into plain `codex exec` | Use `codex exec review --base <branch>` — better context than you can assemble. |
-| Defaulting to `max`/`ultra` | Slow and expensive. `gpt-6.1-sol` at `high` handles nearly every review; `xhigh` is the escalation. |
-| Defaulting to `gpt-6-astra` for reviews | Sol at `high` is the default. Save Astra for truly complex problems where Sol at `xhigh` came back thin. |
+| Defaulting to `max`/`ultra` | Slow and expensive. `gpt-6.2-sol` at `high` handles nearly every review; `xhigh` is the escalation. |
+| Defaulting to `gpt-6.2-astra` for reviews | Sol at `high` is the default. Save Astra for truly complex problems where Sol at `xhigh` came back thin. |
 | Passing `minimal` effort to a GPT-6 model | Sol (6 and 6.1), Luna, and Astra all reject it. Use `low`. |
 | A GPT-6 model erroring about the Codex version or missing metadata | The CLI is too old. Run `codex update`. |
 | Delegating a vague task to an implementer | Plausible code aimed at the wrong target. Scope it and state success criteria. |
